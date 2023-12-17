@@ -25,7 +25,7 @@ from data_utils import FT_Dataset
 from model import GPT2Config, GPT2LMModel
 from exp_utils import create_exp_dir
 
-from . import loralib as lora
+import loralib as lora
 
 parser = argparse.ArgumentParser(description='PyTorch GPT2 ft script')
 
@@ -81,13 +81,16 @@ parser.add_argument('--roll_step', type=int, default=100, help='rolling step')
 
 parser.add_argument('--eval_epoch', type=int, default=1, help='eval per number of epochs')
 
+parser.add_argument("--random_seed", default=10, type=int, help='random seed')
+
+parser.add_argument("--device", default="cuda:0", type=str, help='device')
+
 # influence model, calculate the influence score between two samples.
 def print_args(args):
-    if args.rank == 0:
-        print('=' * 100)
-        for k, v in args.__dict__.items():
-            print(f'        - {k} : {v}')
-        print('=' * 100)
+    print('=' * 100)
+    for k, v in args.__dict__.items():
+        print(f'        - {k} : {v}')
+    print('=' * 100)
 
 
 class AverageMeter(object):
@@ -111,18 +114,20 @@ class AverageMeter(object):
 
 
 def optimizer_step(_loss, _optimizer, _model, _schedule, args, is_update=True):
-    if args.fp16:
-        with amp.scale_loss(_loss, _optimizer) as _scaled_loss:
-            _scaled_loss.backward()
-    else:
-        _loss.backward()
+    # if args.fp16:
+    #     with amp.scale_loss(_loss, _optimizer) as _scaled_loss:
+    #         _scaled_loss.backward()
+    # else:
+    #     _loss.backward()
+    _loss.backward()
 
     if is_update:
         if args.clip > 0:
-            if args.fp16:
-                torch.nn.utils.clip_grad_norm_(amp.master_params(_optimizer), args.clip)
-            else:
-                torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
+            # if args.fp16:
+            #     torch.nn.utils.clip_grad_norm_(amp.master_params(_optimizer), args.clip)
+            # else:
+            #     torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
+            torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
 
         _optimizer.step()        
         _optimizer.zero_grad()
@@ -175,7 +180,7 @@ def train_validate(
     log_start_time = time.time()
     best_val_ppl = None
 
-    train_loader.sampler.set_epoch(epoch)
+    # train_loader.sampler.set_epoch(epoch)
 
     for idx, data in enumerate(train_loader):
         data = {key: value for key, value in data.items()}
@@ -205,16 +210,14 @@ def train_validate(
                       f'loss {avg_lm_loss.val:5.2f} | avg loss {avg_lm_loss.avg:5.2f} | ' \
                       f'ppl {math.exp(avg_lm_loss.avg):5.2f}'
 
-            if args.rank == 0: 
-                print(log_str)
+            print(log_str)
             log_start_time = time.time()
             avg_lm_loss.reset()
         
         if train_step % args.save_interval == 0: 
-            if args.rank == 0:
-                model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
-                print('saving checkpoint', model_path)
-                torch.save({'model_state_dict': lora.lora_state_dict(model)}, model_path)
+            model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
+            print('saving checkpoint', model_path)
+            torch.save({'model_state_dict': lora.lora_state_dict(model)}, model_path)
 
         # evaluation interval
         if train_step % args.eval_interval == 0:
@@ -229,20 +232,18 @@ def train_validate(
                       f'time: {time.time() - eval_start_time:5.2f}s | valid loss {valid_loss:5.2f} | ' \
                       f'valid ppl {valid_ppl:5.2f} | best ppl {best_val_ppl:5.2f} '
 
-            if args.rank == 0:
-                print('-' * 100)
-                print(log_str)
-                print('-' * 100)
+            print('-' * 100)
+            print(log_str)
+            print('-' * 100)
 
             model.train()
 
         if train_step == args.max_step:
             break
 
-    if args.rank == 0:
-        model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
-        print('saving checkpoint', model_path)
-        torch.save({'model_state_dict': model.state_dict()}, model_path) 
+    model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
+    print('saving checkpoint', model_path)
+    torch.save({'model_state_dict': model.state_dict()}, model_path) 
     return train_step
 
 
@@ -250,17 +251,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print_args(args)
 
-    if args.fp16:
-        try:
-            from apex import amp
-        except Exception as e:
-            warnings.warn('Could not import amp, apex may not be installed')
+    # if args.fp16:
+    #     try:
+    #         from apex import amp
+    #     except Exception as e:
+    #         warnings.warn('Could not import amp, apex may not be installed')
 
     torch.manual_seed(args.random_seed)
     random.seed(args.random_seed)
     
-    if args.rank == 0:
-        args.logging = create_exp_dir(args.work_dir)
+    args.logging = create_exp_dir(args.work_dir)
 
     train_data = FT_Dataset(
         args.train_data, args.train_batch_size, args.seq_len, 
@@ -274,13 +274,13 @@ if __name__ == '__main__':
     train_loader = DataLoader(
         train_data, batch_size=args.train_batch_size, num_workers=0, 
         shuffle=False, pin_memory=False, drop_last=True,
-        sampler=torch.utils.data.distributed.DistributedSampler(train_data, seed=args.random_seed)
+        # sampler=torch.utils.data.distributed.DistributedSampler(train_data, seed=args.random_seed)
     )
     
     valid_loader = DataLoader(
         valid_data, batch_size=args.valid_batch_size, num_workers=0, 
         shuffle=False, pin_memory=False, drop_last=False,
-        sampler=torch.utils.data.distributed.DistributedSampler(valid_data, seed=args.random_seed)
+        # sampler=torch.utils.data.distributed.DistributedSampler(valid_data, seed=args.random_seed)
     )
 
     if args.model_card == 'gpt2.sm':
@@ -317,12 +317,12 @@ if __name__ == '__main__':
     optimizer = create_adam_optimizer_from_args(lm_net, args)
 
     if args.max_step is None:
-        args.max_step = (args.max_epoch * train_data.num_batches + args.world_size - 1) // args.world_size
+        args.max_step = args.max_epoch * train_data.num_batches
         print('set max_step:', args.max_step)
 
     scheduler = create_optimizer_scheduler(optimizer, args)
-    if args.fp16:
-        lm_net, optimizer = amp.initialize(lm_net, optimizer, opt_level="O1")
+    # if args.fp16:
+    #     lm_net, optimizer = amp.initialize(lm_net, optimizer, opt_level="O1")
     # lm_net, optimizer = distributed_opt(args, lm_net, optimizer, grad_acc=args.grad_acc)
 
     try:
@@ -334,11 +334,9 @@ if __name__ == '__main__':
             )
             
             if train_step >= args.max_step or (args.max_epoch is not None and epoch >= args.max_epoch):
-                if args.rank == 0:
-                    print('-' * 100)
-                    print('End of training')
+                print('-' * 100)
+                print('End of training')
                 break
     except KeyboardInterrupt:
-        if args.rank == 0:
-            print('-' * 100)
-            print('Exiting from training early')
+        print('-' * 100)
+        print('Exiting from training early')
