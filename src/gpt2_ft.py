@@ -114,20 +114,18 @@ class AverageMeter(object):
 
 
 def optimizer_step(_loss, _optimizer, _model, _schedule, args, is_update=True):
-    # if args.fp16:
-    #     with amp.scale_loss(_loss, _optimizer) as _scaled_loss:
-    #         _scaled_loss.backward()
-    # else:
-    #     _loss.backward()
-    _loss.backward()
+    if args.fp16:
+        with amp.scale_loss(_loss, _optimizer) as _scaled_loss:
+            _scaled_loss.backward()
+    else:
+        _loss.backward()
 
     if is_update:
         if args.clip > 0:
-            # if args.fp16:
-            #     torch.nn.utils.clip_grad_norm_(amp.master_params(_optimizer), args.clip)
-            # else:
-            #     torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
-            torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
+            if args.fp16:
+                torch.nn.utils.clip_grad_norm_(amp.master_params(_optimizer), args.clip)
+            else:
+                torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
 
         _optimizer.step()        
         _optimizer.zero_grad()
@@ -251,11 +249,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print_args(args)
 
-    # if args.fp16:
-    #     try:
-    #         from apex import amp
-    #     except Exception as e:
-    #         warnings.warn('Could not import amp, apex may not be installed')
+    if args.fp16:
+        try:
+            from apex import amp
+        except Exception as e:
+            import warnings
+            warnings.warn('Could not import amp, apex may not be installed')
 
     torch.manual_seed(args.random_seed)
     random.seed(args.random_seed)
@@ -321,8 +320,8 @@ if __name__ == '__main__':
         print('set max_step:', args.max_step)
 
     scheduler = create_optimizer_scheduler(optimizer, args)
-    # if args.fp16:
-    #     lm_net, optimizer = amp.initialize(lm_net, optimizer, opt_level="O1")
+    if args.fp16:
+        lm_net, optimizer = amp.initialize(lm_net, optimizer, opt_level="O1")
     # lm_net, optimizer = distributed_opt(args, lm_net, optimizer, grad_acc=args.grad_acc)
 
     try:
