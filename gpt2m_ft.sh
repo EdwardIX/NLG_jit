@@ -1,7 +1,7 @@
 python src/gpt2_ft.py \
     --train_data ./data/e2e/train.jsonl \
     --valid_data ./data/e2e/valid.jsonl \
-    --train_batch_size 8 \
+    --train_batch_size 4 \
     --grad_acc 1 \
     --valid_batch_size 4 \
     --seq_len 512 \
@@ -20,5 +20,5 @@ python src/gpt2_ft.py \
     --lora_alpha 32 \
     --lora_dropout 0.1 \
     --label_smooth 0.1 \
-    --work_dir ./trained_models/GPT2_M/e2e \
+    --work_dir ./trained_models/GPT2_M_jit/e2e \
     --random_seed 110

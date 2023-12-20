@@ -7,12 +7,10 @@ import glob
 import random
 from collections import Counter, OrderedDict
 import numpy as np
-import torch
 import json
 
-import torch
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
+import jittor as jt
+from jittor.dataset import Dataset
 
 
 class LMOrderedIterator(object):
@@ -34,9 +32,9 @@ class LMOrderedIterator(object):
         # Work out how cleanly we can divide the dataset into bsz parts.
         self.n_step = len(data) // self.global_bsz # bsz
 
-        self.split_data = torch.tensor(
+        self.split_data = jt.array(
             data[rank * self.n_step * bsz : (rank + 1) * self.n_step * bsz], 
-            dtype=torch.long, device=self.device
+            dtype=jt.int64, device=self.device
         )  # data.view(-1)
 
         self.split_data = self.split_data.view(bsz, -1) 
@@ -52,10 +50,10 @@ class LMOrderedIterator(object):
         _input = self.split_data[:, beg_idx : end_idx].contiguous()
         _target = self.split_data[:, beg_idx+1 : end_idx+1].contiguous()
 
-        _msk = torch.cat(
+        _msk = jt.cat(
             [
-                torch.zeros(bptt-eval_len, dtype=torch.float, device=self.device), 
-                torch.ones(eval_len, dtype=torch.float, device=self.device)
+                jt.zeros(bptt-eval_len, dtype=jt.float32, device=self.device), 
+                jt.ones(eval_len, dtype=jt.float32, device=self.device)
             ]
         )
         _msk = _msk.unsqueeze(0).expand_as(_input) # .unsqueeze(-1) # length, 1; 
@@ -120,13 +118,13 @@ class BinLMOrderedIterator(object):
             _inputs.append(_input)
             _targets.append(_target)
 
-        _input = torch.tensor(_inputs, dtype=torch.int64, device=self.device).contiguous()
-        _target = torch.tensor(_targets, dtype=torch.int64, device=self.device).contiguous()
+        _input = jt.array(_inputs, dtype=jt.int64, device=self.device).contiguous()
+        _target = jt.array(_targets, dtype=jt.int64, device=self.device).contiguous()
 
-        _msk = torch.cat(
+        _msk = jt.cat(
             [
-                torch.zeros(bptt-eval_len, dtype=torch.float, device=self.device), 
-                torch.ones(eval_len, dtype=torch.float, device=self.device)
+                jt.zeros(bptt-eval_len, dtype=jt.float32, device=self.device), 
+                jt.ones(eval_len, dtype=jt.float32, device=self.device)
             ]
         )
         _msk = _msk.unsqueeze(0).expand_as(_input) # .unsqueeze(-1) # length, 1; 
@@ -199,6 +197,7 @@ class FT_Dataset(Dataset):
     def __init__(self, ft_file, batch_size, max_seq_length, 
                  max_eval_length=0, joint_lm=False, prefix_len=0, infix_len=0, 
                  prefix_cursor=1000000, infix_cursor=2000000):
+        super(FT_Dataset, self).__init__(batch_size=batch_size)
         self.ft_file = ft_file
         self.ft_samples = self.read_ft_file(ft_file)
         self.batch_size = batch_size
@@ -215,8 +214,7 @@ class FT_Dataset(Dataset):
         self.prefix_cursor = prefix_cursor
         self.infix_cursor = infix_cursor
 
-    def __len__(self):
-        return self.num_batches * self.batch_size
+        self.set_attrs(total_len = self.num_batches * self.batch_size)
         
     def __getitem__(self, item):
         if(item >= self.num_examples):
@@ -243,19 +241,19 @@ class FT_Dataset(Dataset):
         _msk, _ = padding_tokens(_msk, self.max_seq_length, 0.0, 1)
         
         output = {}
-        output["id"] = torch.tensor(item, dtype=torch.long)
+        output["id"] = jt.array(item, dtype=jt.int64)
         
         _query, _query_len = padding_tokens(
             conditions, self.max_seq_length, 0, -1, 
             max_context_length = self.max_seq_length - self.max_eval_length
         )
-        output["query"] = torch.tensor(_query, dtype=torch.long)
-        output["query_len"] = torch.tensor(_query_len, dtype=torch.long)
+        output["query"] = jt.array(_query, dtype=jt.int64)
+        output["query_len"] = jt.array(_query_len, dtype=jt.int64)
 
-        output["input"] = torch.tensor(_input, dtype=torch.long) 
-        output["target"] = torch.tensor(_target, dtype=torch.long) 
+        output["input"] = jt.array(_input, dtype=jt.int64) 
+        output["target"] = jt.array(_target, dtype=jt.int64) 
 
-        output["mask"] = torch.tensor(_msk, dtype=torch.float)
+        output["mask"] = jt.array(_msk, dtype=jt.float32)
         return output
 
     def read_ft_file(self, ft_file):

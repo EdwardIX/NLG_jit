@@ -9,13 +9,11 @@ import os
 import numpy as np
 import itertools
 
-import torch
+import jittor as jt
 import random
-from torch.utils.data import DataLoader
-torch.set_printoptions(threshold=100000)
+from jittor.dataset import DataLoader
 
 from optimizer import (
-    create_adam_optimizer, 
     create_optimizer_scheduler, 
     add_optimizer_params, 
     create_adam_optimizer_from_args
@@ -25,7 +23,7 @@ from data_utils import FT_Dataset
 from model import GPT2Config, GPT2LMModel
 from exp_utils import create_exp_dir
 
-import loralib as lora
+import loralib_jit as lora
 
 parser = argparse.ArgumentParser(description='PyTorch GPT2 ft script')
 
@@ -118,14 +116,15 @@ def optimizer_step(_loss, _optimizer, _model, _schedule, args, is_update=True):
         with amp.scale_loss(_loss, _optimizer) as _scaled_loss:
             _scaled_loss.backward()
     else:
-        _loss.backward()
+        # _loss.backward()
+        _optimizer.backward(_loss)
 
     if is_update:
-        if args.clip > 0:
-            if args.fp16:
-                torch.nn.utils.clip_grad_norm_(amp.master_params(_optimizer), args.clip)
-            else:
-                torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
+        # if args.clip > 0:
+        #     if args.fp16:
+        #         torch.nn.utils.clip_grad_norm_(amp.master_params(_optimizer), args.clip)
+        #     else:
+        #         torch.nn.utils.clip_grad_norm_(_model.parameters(), args.clip)
 
         _optimizer.step()        
         _optimizer.zero_grad()
@@ -141,7 +140,7 @@ def evaluate(model, valid_loader, args):
 
     avg_lm_loss = AverageMeter()
 
-    with torch.no_grad():
+    with jt.no_grad():
         for idx, data in enumerate(valid_loader):
             data = {key: value for key, value in data.items()}
 
@@ -215,7 +214,7 @@ def train_validate(
         if train_step % args.save_interval == 0: 
             model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
             print('saving checkpoint', model_path)
-            torch.save({'model_state_dict': lora.lora_state_dict(model)}, model_path)
+            jt.save({'model_state_dict': lora.lora_state_dict(model)}, model_path)
 
         # evaluation interval
         if train_step % args.eval_interval == 0:
@@ -241,7 +240,7 @@ def train_validate(
 
     model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
     print('saving checkpoint', model_path)
-    torch.save({'model_state_dict': model.state_dict()}, model_path) 
+    jt.save({'model_state_dict': model.state_dict()}, model_path) 
     return train_step
 
 
@@ -256,7 +255,7 @@ if __name__ == '__main__':
             import warnings
             warnings.warn('Could not import amp, apex may not be installed')
 
-    torch.manual_seed(args.random_seed)
+    jt.seed(args.random_seed)
     random.seed(args.random_seed)
     
     args.logging = create_exp_dir(args.work_dir)
@@ -271,14 +270,14 @@ if __name__ == '__main__':
     )
 
     train_loader = DataLoader(
-        train_data, batch_size=args.train_batch_size, num_workers=0, 
-        shuffle=False, pin_memory=False, drop_last=True,
+        train_data, batch_size=args.train_batch_size, # num_workers=0, 
+        shuffle=False, drop_last=True, # pin_memory=False, 
         # sampler=torch.utils.data.distributed.DistributedSampler(train_data, seed=args.random_seed)
     )
     
     valid_loader = DataLoader(
-        valid_data, batch_size=args.valid_batch_size, num_workers=0, 
-        shuffle=False, pin_memory=False, drop_last=False,
+        valid_data, batch_size=args.valid_batch_size, # num_workers=0, 
+        shuffle=False, drop_last=False, # pin_memory=False, 
         # sampler=torch.utils.data.distributed.DistributedSampler(valid_data, seed=args.random_seed)
     )
 
@@ -307,7 +306,7 @@ if __name__ == '__main__':
     lm_net = GPT2LMModel(config)
     if args.init_checkpoint is not None:
         print('loading model pretrained weight.')
-        lm_net.load_weight(torch.load(args.init_checkpoint))    
+        lm_net.load_weight(jt.load(args.init_checkpoint))    
 
     lm_net = lm_net.cuda()
 
