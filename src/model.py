@@ -387,8 +387,9 @@ class GPT2LMModel(nn.Module):
                 loss = (1.0 - label_smooth) * nll_loss + label_smooth * smooth_loss
                 loss = loss.view(_batch, _len)
             else:
-                loss_fct = nn.CrossEntropyLoss(ignore_index=-1, reduce=False)
-                loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), lm_labels.view(-1)).view(_batch, _len)
+                # loss_fct = nn.CrossEntropyLoss(ignore_index=-1, reduce=False)
+                # loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), lm_labels.view(-1)).view(_batch, _len)
+                loss = nn.cross_entropy_loss(lm_logits.view(-1, lm_logits.size(-1)), lm_labels.view(-1), ignore_index=-1, reduction='none').view(_batch, _len)
 
             if lm_mask is None:
                 lm_mask = jt.ones(loss.shape, dtype=loss.dtype)#, device=loss.device)

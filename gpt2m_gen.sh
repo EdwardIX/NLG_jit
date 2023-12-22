@@ -4,7 +4,7 @@ python src/gpt2_beam.py \
     --seq_len 512 \
     --eval_len 64 \
     --model_card gpt2.md \
-    --init_checkpoint ./trained_models/GPT2_M/e2e/model.26290.pt \
+    --init_checkpoint ./trained_models/GPT2_M_jit/e2e/model.52580.pkl \
     --lora_dim 4 \
     --lora_alpha 32 \
     --beam 10 \
@@ -12,5 +12,5 @@ python src/gpt2_beam.py \
     --no_repeat_ngram_size 4 \
     --repetition_penalty 1.0 \
     --eos_token_id 628 \
-    --work_dir ./trained_models/GPT2_M/e2e \
-    --output_file predict.26290.b10p08r4.jsonl
+    --work_dir ./trained_models/GPT2_M_jit/e2e \
+    --output_file predict.52580.b10p08r4.jsonl

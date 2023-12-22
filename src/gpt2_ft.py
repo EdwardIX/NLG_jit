@@ -212,7 +212,7 @@ def train_validate(
             avg_lm_loss.reset()
         
         if train_step % args.save_interval == 0: 
-            model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
+            model_path = os.path.join(args.work_dir, f'model.{train_step}.pkl')
             print('saving checkpoint', model_path)
             jt.save({'model_state_dict': lora.lora_state_dict(model)}, model_path)
 
@@ -238,7 +238,7 @@ def train_validate(
         if train_step == args.max_step:
             break
 
-    model_path = os.path.join(args.work_dir, f'model.{train_step}.pt')
+    model_path = os.path.join(args.work_dir, f'model.{train_step}.pkl')
     print('saving checkpoint', model_path)
     jt.save({'model_state_dict': model.state_dict()}, model_path) 
     return train_step

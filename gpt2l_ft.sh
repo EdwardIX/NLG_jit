@@ -20,6 +20,6 @@ python src/gpt2_ft.py \
     --lora_alpha 32 \
     --lora_dropout 0.1 \
     --label_smooth 0.1 \
-    --work_dir ./trained_models/GPT2_L/e2e \
+    --work_dir ./trained_models/GPT2_L_jit/e2e \
     --random_seed 110 \
     --fp16
