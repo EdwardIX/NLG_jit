@@ -180,6 +180,7 @@ def train_validate(
     # train_loader.sampler.set_epoch(epoch)
 
     for idx, data in enumerate(train_loader):
+        _debug_pause(f"Current At IDX {idx}")
         data = {key: value for key, value in data.items()}
 
         _input = data['input'].to(args.device)
@@ -189,7 +190,7 @@ def train_validate(
         _lm_logits, _lm_loss = model(
             _input, lm_labels=_target, lm_mask=_msk, label_smooth=args.label_smooth
         ) 
-
+        _debug_pause(f"After Model Inference")
         _lm_loss = _lm_loss.mean() 
 
         train_step += 1
@@ -198,7 +199,7 @@ def train_validate(
         optimizer_step(
             _lm_loss/(args.grad_acc), optimizer, model, scheduler, args, is_update=is_update
         )
-        
+        _debug_pause(f"After Optim Step")
         if train_step % args.log_interval == 0: 
             elapsed = time.time() - log_start_time
             lr = optimizer.param_groups[0]['lr']
@@ -244,6 +245,11 @@ def train_validate(
     return train_step
 
 
+def _debug_pause(info=None):
+    jt.gc()
+    if info:
+        print(info)
+    input('[pause] Press any key to continue...')
 if __name__ == '__main__':
     args = parser.parse_args()
     print_args(args)
