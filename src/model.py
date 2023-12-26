@@ -173,7 +173,7 @@ class Attention(nn.Module):
 
         present = jt.stack((key.transpose(-2, -1), value))  # transpose to have same shapes for stacking
         a = self._attn(query, key, value, len_kv = len_kv)
-        _debug_pause("After Attention")
+        # _debug_pause("After Attention")
         a = self.merge_heads(a)
         a = self.c_proj(a)
         return a, present
@@ -268,7 +268,7 @@ class GPT2Model(nn.Module):
         # for block, layer_past in zip(self.h, past):
         for i, (block, layer_past) in enumerate(zip(self.h, past)):
             hidden_states, present = block(hidden_states, layer_past = layer_past, len_past=len_past)
-            _debug_pause(f"Current Step: {i} hidden: {jt.mean(hidden_states).item()}")
+            # _debug_pause(f"Current Step: {i} hidden: {jt.mean(hidden_states).item()}")
             presents.append(present)
         hidden_states = self.ln_f(hidden_states)
         output_shape = input_shape + (hidden_states.size(-1),)
@@ -348,7 +348,6 @@ class GPT2LMModel(nn.Module):
         is_report_accuracy=False
     ):
         _batch, _len = input_ids.shape
-        _debug_pause(f"past is None: {past is None}")
         hidden_states, presents = self.transformer(input_ids, past=past, len_past=len_past)
 
         # batch, seq, vocab
@@ -455,5 +454,5 @@ class GPT2LMModel(nn.Module):
 def _debug_pause(info=None):
     if info:
         print(info)
-    jt.display_memory_info()
+    # jt.display_memory_info()
     input('[pause] Press any key to continue...')

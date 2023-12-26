@@ -1,4 +1,4 @@
-python src/gpt2_ft.py \
+python src/gpt2_ft.py < c.txt \
     --train_data ./data/e2e/train.jsonl \
     --valid_data ./data/e2e/valid.jsonl \
     --train_batch_size 1 \

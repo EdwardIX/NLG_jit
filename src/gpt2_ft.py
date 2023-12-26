@@ -117,8 +117,9 @@ def optimizer_step(_loss, _optimizer, _model, _schedule, args, is_update=True):
             _scaled_loss.backward()
     else:
         # _loss.backward()
-        _optimizer.backward(_loss)
-
+        import ipdb; ipdb.set_trace()
+        with jt.no_grad():
+            _optimizer.backward(_loss)
     if is_update:
         # if args.clip > 0:
         #     if args.fp16:
@@ -180,7 +181,7 @@ def train_validate(
     # train_loader.sampler.set_epoch(epoch)
 
     for idx, data in enumerate(train_loader):
-        _debug_pause(f"Current At IDX {idx}")
+        # _debug_pause(f"Current At IDX {idx}")
         data = {key: value for key, value in data.items()}
 
         _input = data['input'].to(args.device)
@@ -190,7 +191,7 @@ def train_validate(
         _lm_logits, _lm_loss = model(
             _input, lm_labels=_target, lm_mask=_msk, label_smooth=args.label_smooth
         ) 
-        _debug_pause(f"After Model Inference")
+        # _debug_pause(f"After Model Inference")
         _lm_loss = _lm_loss.mean() 
 
         train_step += 1
@@ -199,7 +200,8 @@ def train_validate(
         optimizer_step(
             _lm_loss/(args.grad_acc), optimizer, model, scheduler, args, is_update=is_update
         )
-        _debug_pause(f"After Optim Step")
+        # _debug_pause(f"After Optim Step")
+        jt.gc()
         if train_step % args.log_interval == 0: 
             elapsed = time.time() - log_start_time
             lr = optimizer.param_groups[0]['lr']

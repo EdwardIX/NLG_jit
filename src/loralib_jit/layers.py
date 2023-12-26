@@ -170,12 +170,12 @@ class MergedLinear(nn.Linear, LoRALayer):
                 self.merged = True        
 
     def execute(self, x: jt.Var):
-        def T(w):
-            return w.transpose(0, 1) if self.fan_in_fan_out else w
+        def T(w, t=False):
+            return w.transpose(0, 1) if (self.fan_in_fan_out ^ t) else w
         if self.merged:
             return nn.linear(x, T(self.weight), bias=self.bias)
         else:
             result = nn.linear(x, T(self.weight), bias=self.bias)
             if self.r > 0:
-                result += self.lora_dropout(x) @ T(self.merge_AB().transpose(0, 1)) * self.scaling
+                result += self.lora_dropout(x) @ T(self.merge_AB(), t=True) * self.scaling
             return result
