@@ -1,8 +1,8 @@
 python src/gpt2_ft.py \
     --train_data ./data/e2e/train.jsonl \
     --valid_data ./data/e2e/valid.jsonl \
-    --train_batch_size 1 \
-    --grad_acc 8 \
+    --train_batch_size 2 \
+    --grad_acc 4 \
     --valid_batch_size 4 \
     --seq_len 512 \
     --model_card gpt2.lg \
@@ -13,7 +13,7 @@ python src/gpt2_ft.py \
     --correct_bias \
     --adam_beta2 0.999 \
     --scheduler linear \
-    --warmup_step 4000 \
+    --warmup_step 2000 \
     --max_epoch 5 \
     --save_interval 1000 \
     --lora_dim 4 \
